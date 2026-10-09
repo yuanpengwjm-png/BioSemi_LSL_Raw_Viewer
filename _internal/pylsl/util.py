@@ -1,0 +1,227 @@
+import ctypes
+import functools
+import typing
+import warnings
+
+from .lib import lib
+
+# Constant to indicate that a stream has variable sampling rate.
+IRREGULAR_RATE = 0.0
+
+# Constant to indicate that a sample has the next successive time stamp
+# according to the stream's defined sampling rate. Optional optimization to
+# transmit less data per sample.
+DEDUCED_TIMESTAMP = -1.0
+
+# A very large time value (ca. 1 year); can be used in timeouts.
+FOREVER = 32000000.0
+
+# Value formats supported by LSL. LSL data streams are sequences of samples,
+# each of which is a same-size vector of values with one of the below types.
+
+# Post processing flags
+proc_none = 0  # No automatic post-processing; return the ground-truth time stamps for manual post-processing.
+proc_clocksync = 1  # Perform automatic clock synchronization; equivalent to manually adding the time_correction().
+proc_dejitter = 2  # Remove jitter from time stamps using a smoothing algorithm to the received time stamps.
+proc_monotonize = 4  # Force the time-stamps to be monotonically ascending. Only makes sense if timestamps are dejittered.
+proc_threadsafe = 8  # Post-processing is thread-safe (same inlet can be read from by multiple threads).
+proc_ALL = (
+    proc_none | proc_clocksync | proc_dejitter | proc_monotonize | proc_threadsafe
+)
+
+# Transport option flags for StreamOutlet (lsl_transport_options_t). Combine with
+# bitwise OR and pass as the transport_flags argument when creating an outlet.
+transp_default = 0  # Default transport behavior.
+transp_bufsize_samples = 1  # Interpret max_buffered as a number of samples.
+transp_bufsize_thousandths = 2  # Scale max_buffered by 0.001 (finer-grained buffering).
+# Synchronous (blocking) zero-copy writes; push_sample/push_chunk write the caller's
+# buffer directly to every consumer and block until handed to the OS. Reduces CPU for
+# high-bandwidth streams at the cost of call latency. Notes: not compatible with the
+# string format; push from a single thread only; the pushthrough flag is ignored.
+# Requires liblsl >= 1.18.0.
+transp_sync_blocking = 4
+
+
+def _to_str(value: bytes) -> str:
+    """Decode a string that liblsl returned into a Python ``str``.
+
+    Stream metadata is not guaranteed to be valid UTF-8. The usual offender is
+    the hostname, which liblsl reads straight from the operating system: on
+    Windows it comes back in the active ANSI code page, so a machine whose name
+    contains accented characters produces bytes that a strict UTF-8 decode
+    rejects. The same applies to any metadata written by a non-Python LSL
+    application on such a machine.
+
+    Falling back to latin-1 cannot fail, preserves every original byte, and
+    renders the common Windows case (accented Latin characters) correctly.
+    """
+    try:
+        return value.decode("utf-8")
+    except UnicodeDecodeError:
+        return value.decode("latin-1")
+
+
+def protocol_version():
+    """Protocol version.
+
+    The major version is protocol_version() / 100;
+    The minor version is protocol_version() % 100;
+
+    Clients with different minor versions are protocol-compatible with each
+    other while clients with different major versions will refuse to work
+    together.
+
+    """
+    return lib.lsl_protocol_version()
+
+
+def library_version():
+    """Version of the underlying liblsl library.
+
+    The major version is library_version() / 100;
+    The minor version is library_version() % 100;
+
+    """
+    return lib.lsl_library_version()
+
+
+# Oldest liblsl this version of pylsl supports, in liblsl's lsl_library_version()
+# encoding (major * 100 + minor). 116 == liblsl 1.16.0, which is when
+# lsl_create_outlet_ex (bound unconditionally at import) was introduced.
+MIN_LIBLSL_VERSION = 116
+
+
+def _check_liblsl_version(warn_version: typing.Optional[int] = None) -> bool:
+    """Warn if the loaded liblsl is older than pylsl's minimum. Returns True if OK."""
+    found = lib.lsl_library_version() if warn_version is None else warn_version
+    if found < MIN_LIBLSL_VERSION:
+        warnings.warn(
+            f"The loaded liblsl reports version {found // 100}.{found % 100}, but "
+            f"pylsl requires at least {MIN_LIBLSL_VERSION // 100}.{MIN_LIBLSL_VERSION % 100}. "
+            "Some functions may be missing or misbehave. See the 'liblsl compatibility' "
+            "section of the pylsl README.",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+        return False
+    return True
+
+
+_check_liblsl_version()
+
+
+def library_info():
+    """Get a string containing library information. The format of the string shouldn't be used
+    for anything important except giving a a debugging person a good idea which exact library
+    version is used."""
+    return lib.lsl_library_info().decode("utf-8")
+
+
+def set_config_filename(filename: str) -> None:
+    """Set the path of the configuration file to be used by liblsl.
+
+    Must be called before any other LSL function; the configuration is loaded
+    lazily on first use, so calling this afterwards has no effect.
+    """
+    if not hasattr(lib, "lsl_set_config_filename"):
+        raise NotImplementedError(
+            "lsl_set_config_filename is not available in your liblsl version "
+            "(requires liblsl >= 1.17.7)."
+        )
+    lib.lsl_set_config_filename(filename.encode("utf-8"))
+
+
+def set_config_content(content: str) -> None:
+    """Set the configuration content (as an INI string) to be used by liblsl.
+
+    Must be called before any other LSL function; the configuration is loaded
+    lazily on first use, so calling this afterwards has no effect. When set,
+    this content takes precedence over any configuration file. The content is
+    discarded after liblsl has initialized.
+    """
+    if not hasattr(lib, "lsl_set_config_content"):
+        raise NotImplementedError(
+            "lsl_set_config_content is not available in your liblsl version "
+            "(requires liblsl >= 1.17.7)."
+        )
+    lib.lsl_set_config_content(content.encode("utf-8"))
+
+
+def local_clock():
+    """Obtain a local system time stamp in seconds.
+
+    The resolution is better than a millisecond. This reading can be used to
+    assign time stamps to samples as they are being acquired.
+
+    If the "age" of a sample is known at a particular time (e.g., from USB
+    transmission delays), it can be used as an offset to lsl_local_clock() to
+    obtain a better estimate of when a sample was actually captured. See
+    StreamOutlet.push_sample() for a use case.
+
+    """
+    return lib.lsl_local_clock()
+
+
+class TimeoutError(RuntimeError):
+    # note: although this overrides the name of a built-in exception,
+    #       this API is retained here for compatibility with the Python 2.x
+    #       version of pylsl
+    pass
+
+
+class LostError(RuntimeError):
+    pass
+
+
+class InvalidArgumentError(RuntimeError):
+    pass
+
+
+class InternalError(RuntimeError):
+    pass
+
+
+def handle_error(errcode):
+    """Error handler function. Translates an error code into an exception."""
+    if type(errcode) is ctypes.c_int:
+        errcode = errcode.value
+    if errcode == 0:
+        pass  # no error
+    elif errcode == -1:
+        raise TimeoutError("the operation failed due to a timeout.")
+    elif errcode == -2:
+        raise LostError("the stream has been lost.")
+    elif errcode == -3:
+        raise InvalidArgumentError("an argument was incorrectly specified.")
+    elif errcode == -4:
+        raise InternalError("an internal error has occurred.")
+    elif errcode < 0:
+        raise RuntimeError("an unknown error has occurred.")
+
+
+def deprecated(reason: str = None):
+    """Mark functions as deprecated.
+
+    It will result in a warning being emitted when the function is used.
+
+    Example:
+        @deprecated("use new_function instead")
+        def old_function():
+            pass
+    """
+
+    def decorator(func):
+        message = f"Function '{func.__name__}' is deprecated."
+        if reason:
+            message += f" {reason}"
+
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            warnings.simplefilter("always", DeprecationWarning)  # ensure it shows up
+            warnings.warn(message, category=DeprecationWarning, stacklevel=2)
+            warnings.simplefilter("default", DeprecationWarning)
+            return func(*args, **kwargs)
+
+        return wrapper
+
+    return decorator

@@ -1,0 +1,11 @@
+{
+  "ok": true,
+  "synthetic": true,
+  "real_hardware_verified": false,
+  "mean_display_mV": [
+    1.3161817974605425,
+    -0.8833742301938735
+  ],
+  "samples": 6987,
+  "capture": "C:\\Users\\yuanp\\OneDrive\\Desktop\\BMET\\BMET3921\\lsl-check\\dist\\BioSemi_LSL_Raw_Viewer\\raw_test_artifacts\\DEMO_RAW_20261009_124441_265400.npz"
+}

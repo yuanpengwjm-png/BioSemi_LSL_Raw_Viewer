@@ -1,0 +1,22 @@
+BioSemi LSL Raw Viewer — Quick start
+
+Extract the entire ZIP. Keep the EXE and _internal folder together.
+Double-click BioSemi_LSL_Raw_Viewer.exe. No Python installation is required.
+
+1. Start acquisition in ActiView.
+2. Search streams -> select ActiView -> Connect.
+3. Select the same physical channels as in ActiView.
+4. Match time span, voltage units and Y units/division.
+5. Use Freeze view to inspect a trace. Reception continues in the background.
+6. Save displayed data + PNG exports native samples, timestamps and the plot.
+
+This viewer adds no filters, DC removal, smoothing, resampling or sine fitting.
+Fit axes once only moves the visible axes; it never changes the sample values.
+The voltage conversion uses metadata. Unknown units stay in their native scale.
+
+ActiView display filters or a different reference may make its picture differ.
+Raw here means original received LSL samples, not guaranteed raw ADC output.
+
+Detailed instructions: README_RAW_EN.md
+Source code: source folder
+raw_test_artifacts, if present, contains explicitly synthetic verification data.

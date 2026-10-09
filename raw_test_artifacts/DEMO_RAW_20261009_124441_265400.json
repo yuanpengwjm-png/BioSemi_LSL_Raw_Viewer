@@ -1,0 +1,65 @@
+{
+  "source": {
+    "name": "DEMO_ONLY_5Hz_10mVpp",
+    "type": "EEG",
+    "source_id": "DEMO_BioSemiLSL_9a080346f60245f183eb07a31e75448a",
+    "uid": "50876445-0535-4917-b501-fe9f6f83502a",
+    "hostname": "meatball",
+    "channel_count": 2,
+    "nominal_srate": 1024.0,
+    "channel_format": 1,
+    "labels": [
+      "C11",
+      "C12"
+    ],
+    "units": [
+      "uV",
+      "uV"
+    ],
+    "xml": "<?xml version=\"1.0\"?>\n<info>\n\t<name>DEMO_ONLY_5Hz_10mVpp</name>\n\t<type>EEG</type>\n\t<channel_count>2</channel_count>\n\t<channel_format>float32</channel_format>\n\t<source_id>DEMO_BioSemiLSL_9a080346f60245f183eb07a31e75448a</source_id>\n\t<nominal_srate>1024.000000000000</nominal_srate>\n\t<version>1.100000000000000</version>\n\t<created_at>7320.247734700000</created_at>\n\t<uid>50876445-0535-4917-b501-fe9f6f83502a</uid>\n\t<session_id>default</session_id>\n\t<hostname>meatball</hostname>\n\t<v4address />\n\t<v4data_port>16572</v4data_port>\n\t<v4service_port>16572</v4service_port>\n\t<v6address />\n\t<v6data_port>16572</v6data_port>\n\t<v6service_port>16572</v6service_port>\n\t<desc>\n\t\t<channels>\n\t\t\t<channel>\n\t\t\t\t<label>C11</label>\n\t\t\t\t<unit>uV</unit>\n\t\t\t</channel>\n\t\t\t<channel>\n\t\t\t\t<label>C12</label>\n\t\t\t\t<unit>uV</unit>\n\t\t\t</channel>\n\t\t</channels>\n\t</desc>\n</info>\n",
+    "demo": true
+  },
+  "selected_indices": [
+    0,
+    1
+  ],
+  "channel_labels": [
+    "C11",
+    "C12"
+  ],
+  "source_units": [
+    "uV",
+    "uV"
+  ],
+  "display_units": [
+    "mV",
+    "mV"
+  ],
+  "display_factors": [
+    0.001,
+    0.001
+  ],
+  "processing": "None: no added filters, DC subtraction, detrending, smoothing, resampling or fitting.",
+  "upstream_processing": "Unknown; raw means samples received from LSL, not guaranteed ADC-level raw data.",
+  "timestamps": "Original LSL source clock seconds",
+  "orientation": "samples_x_selected_channels",
+  "frozen": true,
+  "receiver_active": true,
+  "stats": {
+    "total": 6987,
+    "buffered": 6987,
+    "gaps": 0,
+    "nonmonotonic": 0,
+    "nonfinite": 0,
+    "silence_s": 0.016000000000531145,
+    "elapsed_s": 6.844000000000051
+  },
+  "viewport": {
+    "seconds": 8.0,
+    "units_per_division": 1.9999848,
+    "centers": [
+      1.3000471,
+      -0.89996289
+    ]
+  }
+}
